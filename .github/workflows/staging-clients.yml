@@ -1,0 +1,26 @@
+name: Signed fixture repack clients
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  clients:
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    environment: registry-signing
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          version: '0.11.6'
+      - run: sudo apt-get update && sudo apt-get install -y apt-utils createrepo-c rpm gnupg
+      - uses: gelstable/gel-registry/.github/actions/setup-nfpm@50ec2b2db4d583282a40a3baae70722c00a0a3f0
+      - name: Verify and install signed repack
+        env:
+          REGISTRY_SIGNING_KEY: ${{ secrets.REGISTRY_SIGNING_KEY }}
+          GELSTABLE_SIGNING_FPR: ${{ secrets.REGISTRY_SIGNING_FPR }}
+        run: bash .github/scripts/staging-clients.sh
