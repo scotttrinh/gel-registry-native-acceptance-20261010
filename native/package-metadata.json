@@ -1,1 +1,58 @@
-{}
+{
+  "21c45ce69166998a8df5c48f53f896fc89321414fca02e38fecb10148c43a718": {
+    "deb": null,
+    "identity": {
+      "arch": "x86_64",
+      "format": "rpm",
+      "name": "gel-server-7",
+      "version": "1:7.1-1"
+    },
+    "rpm": {
+      "filelists": "<ns0:package xmlns:ns0=\"http://linux.duke.edu/metadata/filelists\" pkgid=\"21c45ce69166998a8df5c48f53f896fc89321414fca02e38fecb10148c43a718\" name=\"gel-server-7\" arch=\"x86_64\">\n  <ns0:version epoch=\"1\" ver=\"7.1\" rel=\"1\" />\n  <ns0:file>/usr/share/gel-server-7/fixture</ns0:file>\n</ns0:package>\n",
+      "other": "<ns0:package xmlns:ns0=\"http://linux.duke.edu/metadata/other\" pkgid=\"21c45ce69166998a8df5c48f53f896fc89321414fca02e38fecb10148c43a718\" name=\"gel-server-7\" arch=\"x86_64\">\n  <ns0:version epoch=\"1\" ver=\"7.1\" rel=\"1\" />\n</ns0:package>\n",
+      "primary": "<ns0:package xmlns:ns0=\"http://linux.duke.edu/metadata/common\" xmlns:ns1=\"http://linux.duke.edu/metadata/rpm\" type=\"rpm\">\n  <ns0:name>gel-server-7</ns0:name>\n  <ns0:arch>x86_64</ns0:arch>\n  <ns0:version epoch=\"1\" ver=\"7.1\" rel=\"1\" />\n  <ns0:checksum type=\"sha256\" pkgid=\"YES\">21c45ce69166998a8df5c48f53f896fc89321414fca02e38fecb10148c43a718</ns0:checksum>\n  <ns0:summary>Disposable acceptance fixture</ns0:summary>\n  <ns0:description>Disposable acceptance fixture</ns0:description>\n  <ns0:packager>Disposable Fixture &lt;fixture@example.invalid&gt;</ns0:packager>\n  <ns0:url />\n  <ns0:time file=\"1791657342\" build=\"1791657060\" />\n  <ns0:size package=\"1891\" installed=\"26\" archive=\"26\" />\n  <ns0:location href=\"pool/package.rpm\" />\n  <ns0:format>\n    <ns1:license />\n    <ns1:vendor />\n    <ns1:group />\n    <ns1:buildhost>runnervmmprz5</ns1:buildhost>\n    <ns1:sourcerpm>gel-server-7-7.1-1.src.rpm</ns1:sourcerpm>\n    <ns1:header-range start=\"592\" end=\"1748\" />\n    <ns1:provides>\n      <ns1:entry name=\"gel-server-7\" flags=\"EQ\" epoch=\"0\" ver=\"7.1\" rel=\"1\" />\n    </ns1:provides>\n  </ns0:format>\n</ns0:package>\n"
+    },
+    "signer": "7E6123985633EDD3",
+    "size": 1891
+  },
+  "617dfebdc5f2c6f97edab39b8dbd59e5319fedc4a437955883443fe3e0a2cdfc": {
+    "deb": null,
+    "identity": {
+      "arch": "aarch64",
+      "format": "rpm",
+      "name": "gel-server-7",
+      "version": "1:7.1-1"
+    },
+    "rpm": {
+      "filelists": "<ns0:package xmlns:ns0=\"http://linux.duke.edu/metadata/filelists\" pkgid=\"617dfebdc5f2c6f97edab39b8dbd59e5319fedc4a437955883443fe3e0a2cdfc\" name=\"gel-server-7\" arch=\"aarch64\">\n  <ns0:version epoch=\"1\" ver=\"7.1\" rel=\"1\" />\n  <ns0:file>/usr/share/gel-server-7/fixture</ns0:file>\n</ns0:package>\n",
+      "other": "<ns0:package xmlns:ns0=\"http://linux.duke.edu/metadata/other\" pkgid=\"617dfebdc5f2c6f97edab39b8dbd59e5319fedc4a437955883443fe3e0a2cdfc\" name=\"gel-server-7\" arch=\"aarch64\">\n  <ns0:version epoch=\"1\" ver=\"7.1\" rel=\"1\" />\n</ns0:package>\n",
+      "primary": "<ns0:package xmlns:ns0=\"http://linux.duke.edu/metadata/common\" xmlns:ns1=\"http://linux.duke.edu/metadata/rpm\" type=\"rpm\">\n  <ns0:name>gel-server-7</ns0:name>\n  <ns0:arch>aarch64</ns0:arch>\n  <ns0:version epoch=\"1\" ver=\"7.1\" rel=\"1\" />\n  <ns0:checksum type=\"sha256\" pkgid=\"YES\">617dfebdc5f2c6f97edab39b8dbd59e5319fedc4a437955883443fe3e0a2cdfc</ns0:checksum>\n  <ns0:summary>Disposable acceptance fixture</ns0:summary>\n  <ns0:description>Disposable acceptance fixture</ns0:description>\n  <ns0:packager>Disposable Fixture &lt;fixture@example.invalid&gt;</ns0:packager>\n  <ns0:url />\n  <ns0:time file=\"1791657341\" build=\"1791657060\" />\n  <ns0:size package=\"1891\" installed=\"26\" archive=\"26\" />\n  <ns0:location href=\"pool/package.rpm\" />\n  <ns0:format>\n    <ns1:license />\n    <ns1:vendor />\n    <ns1:group />\n    <ns1:buildhost>runnervmmprz5</ns1:buildhost>\n    <ns1:sourcerpm>gel-server-7-7.1-1.src.rpm</ns1:sourcerpm>\n    <ns1:header-range start=\"592\" end=\"1748\" />\n    <ns1:provides>\n      <ns1:entry name=\"gel-server-7\" flags=\"EQ\" epoch=\"0\" ver=\"7.1\" rel=\"1\" />\n    </ns1:provides>\n  </ns0:format>\n</ns0:package>\n"
+    },
+    "signer": "7E6123985633EDD3",
+    "size": 1891
+  },
+  "705f5fe24a1b5401f3c1cc968261e2b68006200bba1888a577d6962ef871424d": {
+    "deb": "Package: gel-server-7\nArchitecture: amd64\nVersion: 1:7.1-1\nPriority: optional\nMaintainer: Disposable Fixture <fixture@example.invalid>\nInstalled-Size: 0\nFilename: pool/package.deb\nSize: 700\nMD5sum: 5a061cc426ef9536c9a58efc4ed87b47\nSHA1: 57c410267f6101dc8bfb6d6518cde9c5b58a0ccd\nSHA256: 705f5fe24a1b5401f3c1cc968261e2b68006200bba1888a577d6962ef871424d\nSHA512: f24b6ff89b4486715c59e3128a1916935d19b02972f5373d828b2315d860934dd4c9c59a16c53a938925e17aa2fd4f35ba62b95a1101d639507b686e387ef360\nDescription: Disposable acceptance fixture",
+    "identity": {
+      "arch": "amd64",
+      "format": "deb",
+      "name": "gel-server-7",
+      "version": "1:7.1-1"
+    },
+    "rpm": {},
+    "signer": null,
+    "size": 700
+  },
+  "8fbfa1c9d10bb6c9499a442aa90a8fee5f6c769299701565417b67879f2dc36d": {
+    "deb": "Package: gel-server-7\nArchitecture: arm64\nVersion: 1:7.1-1\nPriority: optional\nMaintainer: Disposable Fixture <fixture@example.invalid>\nInstalled-Size: 0\nFilename: pool/package.deb\nSize: 700\nMD5sum: ec693eea3657f9c30cd42dc945ca386e\nSHA1: 1edbfdc656f21950400ae60c03f7367271a52da5\nSHA256: 8fbfa1c9d10bb6c9499a442aa90a8fee5f6c769299701565417b67879f2dc36d\nSHA512: 13b70572f99fbda7dd8de85a2744bad7d45e0455be047c32a5b7ecec554791d35f7b0072239b128bda64cd3ad15663cd470cf37fdb09208f1108bfb9b00e814b\nDescription: Disposable acceptance fixture",
+    "identity": {
+      "arch": "arm64",
+      "format": "deb",
+      "name": "gel-server-7",
+      "version": "1:7.1-1"
+    },
+    "rpm": {},
+    "signer": null,
+    "size": 700
+  }
+}
