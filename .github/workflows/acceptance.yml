@@ -33,7 +33,9 @@ jobs:
           printf 'fixture source\n' > fixture/gel-server-7.1/content
           tar --zstd -cf /tmp/gel-server-x86_64-unknown-linux-gnu.tar.zst -C fixture gel-server-7.1
           cp /tmp/gel-server-x86_64-unknown-linux-gnu.tar.zst /tmp/gel-server-aarch64-unknown-linux-gnu.tar.zst
-          gh release create v7.1 /tmp/gel-server-*-unknown-linux-gnu.tar.zst --title 'Disposable portable fixture' --target "$GITHUB_SHA"
+          if ! gh release view v7.1 >/dev/null 2>&1; then
+            gh release create v7.1 /tmp/gel-server-*-unknown-linux-gnu.tar.zst --title 'Disposable portable fixture' --target "$GITHUB_SHA"
+          fi
       - name: Plan and build fixture revision one
         env:
           GH_TOKEN: ${{ github.token }}
