@@ -1,0 +1,161 @@
+version = 2
+outputDirectory = "public"
+
+[[headers]]
+source = "/i/(.*)"
+headers = [
+    { key = "Cache-Control", value = "public, max-age=31536000, s-maxage=31536000, immutable" },
+]
+
+[[headers]]
+source = "/s/(.*)"
+headers = [
+    { key = "Cache-Control", value = "public, max-age=31536000, s-maxage=31536000, immutable" },
+]
+
+[[headers]]
+source = "/registry.json"
+
+[[headers.headers]]
+key = "Cache-Control"
+value = "public, max-age=0, s-maxage=60, stale-while-revalidate=600, stale-if-error=86400"
+
+[[headers]]
+source = "/v1/(.*)"
+
+[[headers.headers]]
+key = "Cache-Control"
+value = "public, max-age=0, s-maxage=60, stale-while-revalidate=600, stale-if-error=86400"
+
+[[headers]]
+source = "/apt/dists/(.*)"
+headers = [
+    { key = "Cache-Control", value = "public, max-age=0, must-revalidate" },
+]
+
+[[headers]]
+source = "/rpm/:channel/:arch/repodata/:file(repomd\\.xml(?:\\.asc)?)"
+headers = [
+    { key = "Cache-Control", value = "public, max-age=0, must-revalidate" },
+]
+
+[[headers]]
+source = "/rpm/:channel/:arch/repodata/:file([0-9a-f]{64}-[^/]+)"
+headers = [
+    { key = "Cache-Control", value = "public, max-age=31536000, s-maxage=31536000, immutable" },
+]
+
+[[headers]]
+source = "/keys/(.*)"
+headers = [
+    { key = "Cache-Control", value = "public, max-age=0, s-maxage=60" },
+]
+
+[[headers]]
+source = "/apt/pool/(.*)"
+headers = [
+    { key = "Cache-Control", value = "public, max-age=300" },
+]
+
+[[headers]]
+source = "/rpm/pool/(.*)"
+headers = [
+    { key = "Cache-Control", value = "public, max-age=300" },
+]
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-unknown-linux-gnu.json"
+destination = "/i/8bd06c01c5e8c1315357ad8ff7197905.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-unknown-linux-musl.json"
+destination = "/i/177326a16c6f5c98cd8c12d8029b1f3f.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/aarch64-unknown-linux-gnu.json"
+destination = "/i/4c495f627aeb34b6b6ac9ab155b0da68.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/aarch64-unknown-linux-musl.json"
+destination = "/i/d5784a1da043dad0fbf8d7099832fa83.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-apple-darwin.json"
+destination = "/i/748a1740553fed0b844fd9092d8555bb.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/aarch64-apple-darwin.json"
+destination = "/i/6bfb2b9b90e1b088cd793b714930810f.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-pc-windows-msvc.json"
+destination = "/i/a68eab44e7725c47751ca1a351c62f4e.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/aarch64-pc-windows-msvc.json"
+destination = "/i/0d0cd09a2b9685cc9152c0d693b321c9.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-unknown-linux-gnu.testing.json"
+destination = "/i/e4b0249ef45f8eaba1a1690277df9be6.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-unknown-linux-musl.testing.json"
+destination = "/i/cfbf6846e75721f1c19f80b8494652fc.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/aarch64-unknown-linux-gnu.testing.json"
+destination = "/i/56042742fe6e3de0c9d5d33123daa4de.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/aarch64-unknown-linux-musl.testing.json"
+destination = "/i/e41828eccb78e1c31540a5dce226eb1d.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-apple-darwin.testing.json"
+destination = "/i/476daa87d2bb525d957d8ba4d9d9df25.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/aarch64-apple-darwin.testing.json"
+destination = "/i/7f3ce8ecfbf4993046add5e140a71b43.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-pc-windows-msvc.testing.json"
+destination = "/i/e9b2b15fb7f25e1bf2abfe87546ea9d6.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-unknown-linux-gnu.nightly.json"
+destination = "/i/94606b80cbd87107f69154d75aae3ee4.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-unknown-linux-musl.nightly.json"
+destination = "/i/831b2e1f8a8a898286e3b4ca52457ee6.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/aarch64-unknown-linux-gnu.nightly.json"
+destination = "/i/cc6c37fa72eb8a2bf8c6e0e638fc1c4b.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/aarch64-unknown-linux-musl.nightly.json"
+destination = "/i/43edc1e6a0ad22593d9535aacd098226.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-apple-darwin.nightly.json"
+destination = "/i/80b07c239f3d2a75cb76b8132cb0b7b9.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/aarch64-apple-darwin.nightly.json"
+destination = "/i/44004d0d69e73ceb73a98dc9bc61bcfe.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/x86_64-pc-windows-msvc.nightly.json"
+destination = "/i/cdfc57544b10b828d2831e77ca3930a1.json"
+
+[[rewrites]]
+source = "/archive/.jsonindexes/aarch64-pc-windows-msvc.nightly.json"
+destination = "/i/53669408a953d4843b5f409b90ceaaaa.json"
+
+[[redirects]]
+source = "/:format(apt|rpm)/pool/:repo(gel|gel-cli|gel-postgis)/:tag/:asset"
+destination = "https://github.com/gelstable/:repo/releases/download/:tag/:asset"
+permanent = false

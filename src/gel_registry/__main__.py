@@ -1,0 +1,405 @@
+"""Command-line entry point for explicit local registry operator phases."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from collections.abc import Callable, Sequence
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import cast
+
+import httpx
+
+from . import candidate, capture, native, normalize, publication, render, validation
+from .constants import CAPTURE_ID
+from .contracts import CaptureManifest, ReleaseManifest
+from .digest import canonical_json
+from .github import create_github_client
+from .rescue import load_plan, publish_plan
+from .rescue.indexes import capture_rescue_indexes
+from .rescue.selection import GitHubTagSource, GitTagSource, plan_rescue
+
+type Handler = Callable[[argparse.Namespace], int]
+
+_RFC3339_UTC = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:\.[0-9]+)?(?:Z|\+00:00)"
+)
+
+
+def _capture_root(repo: Path) -> Path:
+    return repo / "upstream" / "packages.geldata.com" / CAPTURE_ID
+
+
+def _add_repo(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--repo",
+        type=Path,
+        default=Path.cwd(),
+        help="repository root (default: current directory)",
+    )
+
+
+def _parse_captured_at(value: str) -> datetime:
+    """Parse the one timestamp supplied for a capture attempt."""
+
+    candidate = value
+    if _RFC3339_UTC.fullmatch(candidate) is None:
+        raise argparse.ArgumentTypeError("captured-at must be an RFC3339 UTC timestamp")
+    if candidate.endswith("Z"):
+        candidate = candidate[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "captured-at must be an RFC3339 UTC timestamp"
+        ) from exc
+    if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+        raise argparse.ArgumentTypeError("captured-at must be an RFC3339 UTC timestamp")
+    return parsed.astimezone(UTC)
+
+
+def _error_text(error: BaseException) -> str:
+    message = str(error).strip()
+    if not message:
+        return error.__class__.__name__
+    return message.splitlines()[0]
+
+
+def _load_capture_manifest(root: Path) -> CaptureManifest:
+    manifest_path = root / "capture.json"
+    return CaptureManifest.model_validate_json(manifest_path.read_bytes())
+
+
+def _run_capture(args: argparse.Namespace) -> int:
+    repo = Path(args.repo)
+    destination = _capture_root(repo)
+    with httpx.Client() as client:
+        manifest = capture.capture_legacy(client, destination, args.captured_at)
+    print(manifest.capture)
+    return 0
+
+
+def _run_rescue_capture(args: argparse.Namespace) -> int:
+    with httpx.Client() as client:
+        manifest = capture_rescue_indexes(client, Path(args.repo), args.captured_at)
+    print(manifest.capture)
+    return 0
+
+
+def _run_rescue_plan(args: argparse.Namespace) -> int:
+    if args.tag_source == "git":
+        plan = plan_rescue(
+            Path(args.repo),
+            capture=args.capture,
+            product=args.product,
+            version=args.version,
+            slot=args.slot,
+            tag_source=GitTagSource(),
+        )
+    else:
+        with create_github_client() as client:
+            plan = plan_rescue(
+                Path(args.repo),
+                capture=args.capture,
+                product=args.product,
+                version=args.version,
+                slot=args.slot,
+                tag_source=GitHubTagSource(client),
+            )
+    sys.stdout.buffer.write(canonical_json(plan))
+    return 0
+
+
+def _run_rescue_publish(args: argparse.Namespace) -> int:
+    plan = load_plan(Path(args.plan))
+    with create_github_client() as client:
+        lines = publish_plan(client, plan, dry_run=bool(args.dry_run))
+    for line in lines:
+        print(line)
+    return 0
+
+
+def _run_verify_capture_live(args: argparse.Namespace) -> int:
+    root = _capture_root(Path(args.repo))
+    manifest = _load_capture_manifest(root)
+    with httpx.Client() as client:
+        capture.verify_live_capture(client, root, manifest)
+    print("ok")
+    return 0
+
+
+def _run_normalize(args: argparse.Namespace) -> int:
+    repo = Path(args.repo)
+    capture_root = _capture_root(repo)
+    bootstrap_root = repo / "bootstrap"
+    if args.check:
+        normalize.validate_normalization(capture_root, bootstrap_root)
+    else:
+        normalize.normalize_capture(capture_root, bootstrap_root)
+    print("ok")
+    return 0
+
+
+def _run_build_snapshot(args: argparse.Namespace) -> int:
+    print(render.build_snapshot(Path(args.repo)))
+    return 0
+
+
+def _run_select_snapshot(args: argparse.Namespace) -> int:
+    render.select_snapshot(Path(args.repo))
+    print("ok")
+    return 0
+
+
+def _run_publish_bootstrap(args: argparse.Namespace) -> int:
+    result = publication.publish_registry(Path(args.repo))
+    print(result.snapshot)
+    return 0
+
+
+def _run_build_candidate(args: argparse.Namespace) -> int:
+    with create_github_client() as client:
+        result = candidate.build_candidate(Path(args.repo), client)
+    print(
+        json.dumps(
+            {
+                "snapshot": result.snapshot,
+                "records": [
+                    str(
+                        candidate.release_record_path(
+                            Path(args.repo), record
+                        ).relative_to(args.repo)
+                    )
+                    for record in result.records
+                ],
+                "rejected": [
+                    {
+                        "repository": rejected.repository,
+                        "release_id": rejected.release_id,
+                        "tag": rejected.tag,
+                        "reason": rejected.reason,
+                    }
+                    for rejected in result.rejected
+                ],
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _print_report(report: validation.ValidationReport) -> int:
+    if report.ok:
+        print("ok")
+        return 0
+    for error in report.errors:
+        print(f"error: {_error_text(ValueError(error))}", file=sys.stderr)
+    return 1
+
+
+def _run_validate(args: argparse.Namespace) -> int:
+    report = validation.validate_local(Path(args.repo), args.base)
+    return _print_report(report)
+
+
+def _run_manifest_check(args: argparse.Namespace) -> int:
+    ReleaseManifest.model_validate_json(args.file.read_bytes())
+    print("ok")
+    return 0
+
+
+def _run_native_render(args: argparse.Namespace) -> int:
+    changed = native.render_native(
+        Path(args.repo), Path(args.cache), Path(args.out), args.base_url
+    )
+    print("rendered" if changed else "unchanged")
+    return 0
+
+
+def _run_native_sign(args: argparse.Namespace) -> int:
+    native.sign_native(Path(args.repo))
+    print("signed")
+    return 0
+
+
+def _run_native_validate(args: argparse.Namespace) -> int:
+    from .validation.native import validate_native, validate_native_structure
+
+    (validate_native_structure if args.unsigned else validate_native)(Path(args.repo))
+    print("ok")
+    return 0
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="gel-registry")
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    native_parser = commands.add_parser("native", help="native package repositories")
+    native_commands = native_parser.add_subparsers(required=True)
+    native_render = native_commands.add_parser("render")
+    _add_repo(native_render)
+    native_render.add_argument("--cache", required=True, type=Path)
+    native_render.add_argument("--out", required=True, type=Path)
+    native_render.add_argument("--base-url", default="https://registry.gelstable.com")
+    native_render.set_defaults(handler=_run_native_render)
+    native_sign = native_commands.add_parser("sign")
+    _add_repo(native_sign)
+    native_sign.set_defaults(handler=_run_native_sign)
+    native_validate = native_commands.add_parser("validate")
+    _add_repo(native_validate)
+    native_validate.add_argument("--unsigned", action="store_true")
+    native_validate.set_defaults(handler=_run_native_validate)
+
+    capture_parser = commands.add_parser("capture", help="capture legacy indexes")
+    _add_repo(capture_parser)
+    capture_parser.add_argument(
+        "--captured-at",
+        type=_parse_captured_at,
+        required=True,
+        help="one RFC3339 UTC timestamp for this capture attempt",
+    )
+    capture_parser.set_defaults(handler=_run_capture)
+
+    rescue_capture_parser = commands.add_parser(
+        "rescue-capture", help="capture legacy indexes from packages.edgedb.com"
+    )
+    _add_repo(rescue_capture_parser)
+    rescue_capture_parser.add_argument(
+        "--captured-at",
+        type=_parse_captured_at,
+        required=True,
+        help="one RFC3339 UTC timestamp for this rescue capture attempt",
+    )
+    rescue_capture_parser.set_defaults(handler=_run_rescue_capture)
+
+    rescue_plan_parser = commands.add_parser(
+        "rescue-plan", help="select a read-only canonical rescue release plan"
+    )
+    _add_repo(rescue_plan_parser)
+    rescue_plan_parser.add_argument("--capture", required=True)
+    mode = rescue_plan_parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--bulk", action="store_true")
+    mode.add_argument("--product", choices=("cli", "server", "ls", "postgis"))
+    rescue_plan_parser.add_argument("--version")
+    rescue_plan_parser.add_argument("--slot")
+    rescue_plan_parser.add_argument(
+        "--tag-source",
+        choices=("git", "github"),
+        default="git",
+        help=(
+            "how upstream tags are read: 'git' runs one ls-remote per "
+            "repository (default, no token, no REST rate limit); 'github' "
+            "uses the REST API"
+        ),
+    )
+    rescue_plan_parser.set_defaults(handler=_run_rescue_plan)
+
+    rescue_publish_parser = commands.add_parser(
+        "rescue-publish",
+        help="create draft releases and upload rescued assets",
+    )
+    rescue_publish_parser.add_argument("--plan", required=True, type=Path)
+    rescue_publish_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="run the full preflight and print intended operations only",
+    )
+    rescue_publish_parser.set_defaults(handler=_run_rescue_publish)
+
+    live_parser = commands.add_parser(
+        "verify-capture-live", help="explicitly rehearse the capture remotely"
+    )
+    _add_repo(live_parser)
+    live_parser.set_defaults(handler=_run_verify_capture_live)
+
+    normalize_parser = commands.add_parser(
+        "normalize", help="normalize a frozen capture locally"
+    )
+    _add_repo(normalize_parser)
+    normalize_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="verify committed bootstrap bytes instead of writing them",
+    )
+    normalize_parser.set_defaults(handler=_run_normalize)
+
+    build_parser = commands.add_parser(
+        "build-snapshot", help="build one immutable snapshot"
+    )
+    _add_repo(build_parser)
+    build_parser.set_defaults(handler=_run_build_snapshot)
+
+    select_parser = commands.add_parser(
+        "select-snapshot", help="select an existing snapshot through the pointer"
+    )
+    _add_repo(select_parser)
+    select_parser.set_defaults(handler=_run_select_snapshot)
+
+    publish_parser = commands.add_parser(
+        "publish-bootstrap", help="publish and select the bootstrap snapshot"
+    )
+    _add_repo(publish_parser)
+    publish_parser.set_defaults(handler=_run_publish_bootstrap)
+
+    candidate_parser = commands.add_parser(
+        "build-candidate", help="gather release manifests and publish a candidate"
+    )
+    _add_repo(candidate_parser)
+    candidate_parser.set_defaults(handler=_run_build_candidate)
+
+    manifest_parser = commands.add_parser("manifest", help="publisher manifest tools")
+    manifest_commands = manifest_parser.add_subparsers(
+        dest="manifest_command", required=True
+    )
+    manifest_check = manifest_commands.add_parser(
+        "check", help="validate an unpublished release manifest"
+    )
+    manifest_check.add_argument("file", type=Path)
+    manifest_check.set_defaults(handler=_run_manifest_check)
+
+    validate_parser = commands.add_parser(
+        "validate", help="run deterministic local validation"
+    )
+    _add_repo(validate_parser)
+    validate_parser.add_argument(
+        "--base",
+        type=Path,
+        default=None,
+        help="optional merge-base tree for immutable-history checks",
+    )
+    validate_parser.set_defaults(handler=_run_validate)
+
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Dispatch one explicit operator command and return its exit status."""
+
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    handler = cast(Handler, args.handler)
+    try:
+        return handler(args)
+    except (RuntimeError, OSError, ValueError) as exc:
+        print(f"error: {_error_text(exc)}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":  # pragma: no cover - exercised by the console script
+    raise SystemExit(main())
+
+
+__all__ = [
+    "capture",
+    "candidate",
+    "httpx",
+    "main",
+    "normalize",
+    "publication",
+    "render",
+    "validation",
+]

@@ -1,0 +1,410 @@
+# Registry hosting and local operations
+
+Runbook for production operations and local registry generation for `gelstable/gel-registry`.
+
+The registry is an immutable, static distribution index. Vercel serves the checked-in `public/` tree verbatim without build steps, runtime functions, or network fetches.
+
+## Data model & storage layout
+
+- `pointers/latest.json`: Internal tool input pointing to the active snapshot (never served).
+- `public/i/<blob-id>.json`: Content-addressed index blobs (SHA-256 truncated to 32 hex chars). Immutable and append-only.
+- `public/s/<snapshot-id>/registry.json`: Snapshot manifest containing relative references to blobs in `public/i/`. Immutable.
+- `public/registry.json` and `public/v1/snapshots.json`: The only moving documents; generated directly from `pointers/latest.json`.
+
+Blobs in `public/i/` are never deleted: older snapshots referenced by pinned URLs rely on immutable caching.
+
+## Repository setup & branch protection
+
+1. Create `gelstable/gel-registry` on GitHub. Push the initial tree.
+2. Configure Actions permissions to read-only; pin actions to commit SHAs.
+3. Apply branch protection to `main`:
+   - Require pull request with at least one approval; dismiss stale approvals.
+   - Require branches to be up to date and pass status check: `Registry validation / local` (`.github/workflows/validate.yml`).
+   - Restrict push access to maintainers; disable force pushes and branch deletion.
+   - Enforce rules for administrators (no bypasses).
+
+Reproduce CI validation locally:
+
+```text
+uv run pytest -q && uv run mypy src tests && uv run ruff check . && uv run ruff format --check . && uv run zizmor --offline .github/workflows
+```
+
+## Vercel configuration
+
+Infrastructure is declared in `infra/` (see `docs/infrastructure.md`). End-state configuration:
+
+- Bound to `gelstable/gel-registry`, production branch `main`, root directory `.`.
+- Output directory `public`, framework preset `Other`, install/build commands
+  empty. No Functions, no ISR, no redirects. The only rewrites are the legacy
+  `/archive/.jsonindexes/<platform><channel>.json` aliases, one literal rule per
+  published index, which let a client configured with `GEL_PKG_ROOT` address the
+  selected snapshot through the paths it already knows.
+- `vercel.toml` is rendered from the selected snapshot by
+  `gel_registry.render.hosting.hosting_config`, not hand-edited. Verify it with
+  `uv run gel-registry validate --repo .`, which fails on any drift between the
+  committed file and a fresh render.
+- Previews enabled for pull requests.
+- Deployment access via Vercel Git integration only. No deployment credentials in GitHub Actions.
+
+### Preview inspection
+
+Before attaching production domains, inspect preview endpoints:
+
+```text
+curl --fail --silent --show-error --head https://<preview-host>/healthz
+curl --fail --silent --show-error https://<preview-host>/registry.json
+curl --fail --silent --show-error https://<preview-host>/v1/snapshots.json
+curl --fail --silent --show-error https://<preview-host>/s/<SNAPSHOT_ID>/registry.json
+curl --fail --silent --show-error https://<preview-host>/i/<BLOB_ID>.json
+```
+
+Verify `healthz` returns static body, roots point to valid snapshots, and no runtime functions are active. Never attach the production domain to an empty snapshot.
+
+## DNS and TLS
+
+Attach `registry.gelstable.com` in Vercel once verified. Add DNS CNAME pointing to Vercel. Validate:
+
+```text
+dig +short registry.gelstable.com CNAME
+curl --fail --silent --show-error --head https://registry.gelstable.com/healthz
+```
+
+Ensure TLS uses the Vercel-managed certificate.
+
+## Legacy capture (Local only)
+
+Live captures fetch the 24-entry legacy matrix into `upstream/packages.geldata.com/legacy-2026-08-bootstrap/` (destination must be empty).
+
+Run in a scratch directory:
+
+```text
+CAPTURE_REPO="$(mktemp -d)"
+uv run gel-registry capture \
+  --repo "$CAPTURE_REPO" \
+  --captured-at 2026-08-20T12:00:00Z
+uv run gel-registry verify-capture-live --repo "$CAPTURE_REPO"
+```
+
+Verify digests, manifest status, and redirect provenance before committing.
+
+## Offline regeneration from committed evidence
+
+Regenerate the bootstrap snapshot deterministically from committed capture evidence without network access:
+
+```text
+REPRODUCTION_REPO="$(mktemp -d)"
+git archive HEAD | tar -x -C "$REPRODUCTION_REPO"
+uv run gel-registry normalize --repo "$REPRODUCTION_REPO"
+SNAPSHOT_ID="$(uv run gel-registry publish-bootstrap --repo "$REPRODUCTION_REPO")"
+test "$SNAPSHOT_ID" = "0f776b71381237c8"
+uv run gel-registry validate --repo "$REPRODUCTION_REPO"
+```
+
+Expected bootstrap snapshot ID: `0f776b71381237c8`.
+
+Non-mutating working tree checks:
+
+```text
+uv run gel-registry normalize --repo . --check
+uv run gel-registry validate --repo .
+```
+
+## Candidate building & rolling promotion
+
+Candidate releases are gathered and staged automatically via the rolling promotion pipeline (see `docs/rolling-promotion.md`).
+
+### Building a candidate locally
+
+To scan allowlisted upstream repositories (`sources/github.json`), gather missing non-draft release manifests, write immutable records under `releases/<owner>/<repo>/<id>.json`, and publish a candidate snapshot locally:
+
+```text
+uv run gel-registry build-candidate --repo .
+```
+
+The command outputs a single JSON object to stdout detailing the newly rendered snapshot ID, added release record paths, and any deterministically rejected releases.
+
+### Rolling promotion pull request
+
+The production promotion pipeline is scheduled in `.github/workflows/promote.yml` and executed by `.github/scripts/promote.py`:
+- Rebuilds candidate branch `promote/registry` fresh from `origin/main`.
+- Enforces the core invariant: candidate = current `main` + all eligible unmerged releases.
+- Pushes with lease protection: `--force-with-lease=refs/heads/promote/registry:<observed-oid>`.
+- Maintains a single rolling PR titled `data: promote registry releases`.
+- Runs with `cancel-in-progress: false` to avoid mid-run interruptions.
+
+### Operational recovery
+
+Because candidate construction is completely disposable and deterministically reconstructed from `main` + upstream APIs:
+- If a candidate branch is broken, has conflicting merges, or suffers a push-lease race, **do not manually rebase or edit `promote/registry`**.
+- Trigger the workflow again via GitHub Actions (`workflow_dispatch`), or re-run `python .github/scripts/promote.py` from a clean checkout of `main`.
+
+## Publication transaction (`publish_registry`)
+
+The publication transaction (`gel_registry.publication.publish_registry`, also accessible via CLI alias `uv run gel-registry publish-bootstrap --repo .`) atomically renders:
+- Package indexes composed from frozen `bootstrap/` and immutable records under `releases/`.
+- Content-addressed blob files under `public/i/<blob-id>.json`.
+- Pinned snapshot registry manifests under `public/s/<snapshot-id>/registry.json`.
+- Moving roots `public/registry.json` and `public/v1/snapshots.json`.
+- Public JSON Schemas under `public/v1/schema/`.
+- Hosting configuration in `vercel.toml`.
+- Pointer file `pointers/latest.json`.
+
+All file writes are atomic, symlinks are rejected, and non-whitelisted paths are barred from mutation.
+
+## Public JSON Schema generation
+
+Public schemas for all registry documents are maintained under `public/v1/schema/`:
+- `release-manifest.json`: Public schema for publisher `gel-registry.json` manifests (see `docs/release-manifest.md`).
+- `release-record.json`: Schema for committed records in `releases/`.
+- `package-index.json`, `capture.json`, `pointer.json`, `root.json`, `snapshot-listing.json`.
+
+Regenerate schemas without modifying snapshots:
+
+```text
+uv run python -c "from pathlib import Path; from gel_registry.render.schemas import render_schemas; render_schemas(Path('.'))"
+```
+
+Verify schemas and snapshots offline:
+
+```text
+uv run gel-registry validate --repo .
+```
+
+## Legacy rescue runbook
+
+The legacy rescue subsystem captures legacy index packages from `packages.edgedb.com`, plans migration into GitHub draft releases for eligible upstream versions, streams original artifacts directly to draft releases, uploads a replacement-only `gel-registry.json` manifest, and relies exclusively on manual operator review and publication followed by the standard promotion pipeline.
+
+### Capture legacy indexes
+
+Capture the 24-entry matrix from `packages.edgedb.com` into `upstream/packages.edgedb.com/<capture-id>/`:
+
+```text
+uv run gel-registry rescue-capture --repo . --captured-at 2026-08-20T12:00:00Z
+```
+
+The capture records each index's exact SHA-256 digest and byte size. One known-absent index (`testing/aarch64-pc-windows-msvc`) is explicitly recorded as absent when upstream returns 404.
+
+### Bulk rescue plan
+
+Generate a plan across all four product types in one canonical JSON output:
+
+```text
+uv run gel-registry rescue-plan --repo . --capture legacy-2026-08-bootstrap --bulk > plan.json
+```
+
+### One-off rescue plans
+
+```text
+# gel CLI, one version
+uv run gel-registry rescue-plan --repo . --capture legacy-2026-08-bootstrap \
+  --product cli --version 3.0.0 > plan.json
+
+# gel server, one version
+uv run gel-registry rescue-plan --repo . --capture legacy-2026-08-bootstrap \
+  --product server --version 4.1.2 > plan.json
+
+# language server, one version
+uv run gel-registry rescue-plan --repo . --capture legacy-2026-08-bootstrap \
+  --product ls --version 4.1.2 > plan.json
+
+# PostGIS extension, one server slot
+uv run gel-registry rescue-plan --repo . --capture legacy-2026-08-bootstrap \
+  --product postgis --slot 4.1 > plan.json
+```
+
+`--product cli|server|ls` each require exactly one `--version`; `--product postgis` requires exactly one `--slot`. `--bulk` takes neither.
+
+### Dry run and publication
+
+Run the full preflight to inspect every destination and print intended operations without mutating GitHub state:
+
+```text
+uv run gel-registry rescue-publish --plan plan.json --dry-run
+```
+
+Execute draft creation and artifact uploads:
+
+```text
+GITHUB_TOKEN=... uv run gel-registry rescue-publish --plan plan.json
+```
+
+### Review, manual publication, and promotion
+
+1. **Review drafts on GitHub**: Operators review each draft release created under `gelstable/gel`, `gelstable/gel-cli`, or `gelstable/gel-postgis`. Confirm that all expected original binary assets are present and `gel-registry.json` contains the expected canonical replacements.
+2. **Publish draft release**: When reviewed and approved, an operator manually publishes the draft release on GitHub.
+3. **Rolling promotion**: The standard promotion pipeline (`uv run gel-registry build-candidate --repo .` or `.github/scripts/promote.py`) discovers published non-draft releases, extracts `gel-registry.json`, validates that each replacement matches an immutable bootstrap digest, and promotes the replacements into candidate snapshots.
+
+### Streaming and resume behavior
+
+- **Streaming without temp files**: Every original artifact streams directly from `packages.edgedb.com` to GitHub draft release with bounded memory and zero temporary files. Exact byte length and SHA-256 digests are verified on transfer.
+- **Manifest uploaded last**: In each draft release, all binary assets are uploaded first. Only when all binaries are successfully uploaded is `gel-registry.json` generated and uploaded to the draft.
+- **Resumption from GitHub state**: Execution is fully idempotent and resumable purely from GitHub's reported state (no local journal). Complete matching releases are skipped. Missing binaries are uploaded first, followed by the manifest.
+- **Conflict detection and safety**: Preflight is all-or-nothing. It rejects published releases, duplicate asset names, incomplete uploads, and size/digest mismatches. An existing `gel-registry.json` claiming absent or conflicting binaries is rejected. Unrecognized extra assets (e.g. experimental `.zst` files) are permitted and never deleted.
+- **Reconciliation**: If an upload error leaves a partial asset behind on GitHub, `rescue-publish` inspects the release and reports the numeric asset ID for manual removal by an operator. Nothing is deleted automatically.
+
+## Selection rollback
+
+Rollbacks update pointers without modifying historical snapshot files:
+
+1. Pick a known-good snapshot ID from `public/v1/snapshots.json` and verify its files in a clean checkout.
+2. Update `pointers/latest.json` and run:
+   ```text
+   uv run gel-registry select-snapshot --repo .
+   ```
+3. Run validations:
+   ```text
+   uv run gel-registry validate --repo .
+   ```
+4. Open PR updating only `pointers/latest.json`, `public/registry.json`, and `public/v1/snapshots.json`.
+5. Merge via standard PR flow.
+
+Never edit or delete `public/s/` or `public/i/` files during rollback.
+
+## CLI validation
+
+Test against the production registry with the Gel CLI:
+
+```text
+GEL_PKG_ROOT=https://registry.gelstable.com gel server list-versions
+```
+
+## Digest audit
+
+Audit production deployment integrity by verifying byte hashes against a clean checkout:
+
+```text
+curl --fail --silent https://registry.gelstable.com/s/<SNAPSHOT_ID>/registry.json | shasum -a 256
+shasum -a 256 public/s/<SNAPSHOT_ID>/registry.json
+
+curl --fail --silent https://registry.gelstable.com/i/<BLOB_ID>.json | shasum -a 256
+shasum -a 256 public/i/<BLOB_ID>.json
+```
+
+Blob IDs correspond to the first 32 characters of their SHA-256 hash. Any mismatch blocks releases and triggers incident triage.
+
+## Outage triage & failover
+
+Distinguish registry-host outages from artifact-host outages:
+
+### Registry-host outage (Vercel / DNS / TLS)
+Registry metadata and `/healthz` fail; artifact downloads may still work.
+1. Deploy the reviewed commit and `public/` directory to the pre-approved backup static host.
+2. Verify headers and byte hashes.
+3. Update DNS CNAME to the backup provider.
+4. Restore primary provider once resolved and repeat digest audit.
+
+### Artifact-host outage (`packages.geldata.com`)
+Registry JSON responds normally, but binary downloads (`installref`) fail.
+1. Do **not** modify registry snapshots or rollback pointers.
+2. Page artifact host / CDN owners.
+3. Verify artifact hashes against recorded digests after recovery.
+
+If both fail, track both incidents independently. Keep last known good Git commit and snapshot ID intact.
+
+## Native package operations
+
+```text
+product release → discover → fetch and inspect new digests
+                           → compose indexes from retained records
+                           → sign metadata → promotion PR → merge → Vercel
+                                                                  → apt / dnf
+stable server or CLI change → Docker reconciler → build, test, publish
+```
+
+### New CLI release
+
+- [ ] Run the CLI release workflow; it builds, signs and publishes both formats.
+- [ ] Review and merge the registry promotion PR as below.
+- [ ] Check the Docker reconciler; it picks up the CLI within the hour.
+
+### Package an existing server or PostGIS release
+
+- [ ] Dispatch the product's `native-packages.yml` with `source_tag` (for example
+      `v7.1` or `legacy-gel-server-7-ext-postgis`), leaving `repack` unchecked.
+- [ ] Check the build and install tests and the published `pkg-…` release.
+- [ ] Review and merge the registry promotion PR.
+- [ ] Check Docker's next hourly reconcile for a server release.
+
+### New server or PostGIS version
+
+- [ ] Use the product release pipeline, which calls the reusable native workflow.
+      Until that pipeline is available, package an existing release instead.
+- [ ] Review and merge the registry promotion PR.
+- [ ] Confirm the production smoke run and Docker reconcile succeed.
+
+### Prerelease
+
+- [ ] Follow the normal release steps; the package's `~` version selects testing.
+- [ ] Check it appears only in testing; testing also includes stable packages.
+- [ ] Install using the testing source from [client setup](native-packages.md).
+
+### Repack
+
+- [ ] Dispatch the server or PostGIS packaging workflow with the same `source_tag`
+      and `repack` checked. It computes the next unused published revision.
+- [ ] For the CLI, cut a new patch release instead; its package revision stays 1.
+- [ ] Check build/install tests and review and merge the promotion PR.
+- [ ] Confirm clients see the new revision; never replace a published asset.
+
+### Review the promotion PR
+
+- [ ] Check the declaring repository/tag and package URL, digest and size.
+- [ ] Check names belong to the publisher and native versions have epoch 1.
+- [ ] Review new `native/package-metadata.json` records and RPM signers.
+- [ ] Check the lock's channel comes from the version and testing includes stable.
+- [ ] Confirm validation and signed fixture client tests pass.
+- [ ] Merge, check the Vercel deployment, then run `native-smoke` if needed.
+
+### Bad release: yank
+
+- [ ] Find the package SHA-256 values in `native/packages.lock.json`.
+- [ ] Open a PR adding `{ "sha256": "<digest>", "reason": "<reason>" }` for each
+      asset to the array in `native/yanked.json`; merge it after validation.
+- [ ] The push triggers promotion. Review and merge the PR removing those digests
+      from indexes and re-signing the changed metadata.
+- [ ] Publish a fixed version or repack, and merge its promotion PR.
+- [ ] Tell affected users: clients do not automatically downgrade or uninstall.
+
+### Routine key rotation
+
+- [ ] Follow [signing-key rotation and custody](signing-keys.md) to add a new
+      signing subkey, retaining the old valid subkey in the certificate.
+- [ ] Run `scripts/set-signing-secrets.sh BUNDLE_DIR` from the new custody bundle.
+- [ ] Open and merge a PR replacing the committed certificate and fingerprint.
+- [ ] Review and merge the triggered promotion PR; current signatures stay valid.
+- [ ] Confirm new product packages use the new subkey.
+
+### Key compromise
+
+- [ ] Follow [signing-key custody and recovery](signing-keys.md): revoke the
+      compromised signing subkey and add a replacement.
+- [ ] Run `scripts/set-signing-secrets.sh BUNDLE_DIR` with the replacement bundle.
+- [ ] Open the certificate PR; validation names the affected RPM digests.
+- [ ] Add those digests to `native/yanked.json` in the same PR.
+- [ ] Merge the certificate/yank PR, then the promotion PR that removes the RPMs
+      and replaces revoked metadata signatures.
+- [ ] Repack affected versions and publish an advisory asking users to fetch
+      the updated public certificate and verify its primary fingerprint.
+
+### Scheduled job failure
+
+- [ ] Follow the run link in the job's issue and fix the reported cause.
+- [ ] Let the next scheduled run retry; rerun manual dispatches yourself.
+- [ ] Check the issue closes on the next successful scheduled run.
+
+### Nobody available
+
+- [ ] Leave releases in the promotion PR until someone can review them.
+- [ ] No key or metadata expires; installed clients keep using signed indexes.
+- [ ] Docker retries failed scheduled reconciles automatically.
+
+### Acceptance and recovery
+
+- [ ] Run `native-smoke` for deployed supported systems and both architectures.
+- [ ] Use `tests/clients/migrate.sh` for the legacy-source migration check.
+- [ ] If retained package records are lost, restore them from Git; deleting a
+      record makes the next render download that package again.
+- [ ] Restore failed local renders with Git, preserving intended source edits.
+
+Publisher interfaces: [shared actions](publishing.md). Local fixture setup:
+[native development](native-development.md). Secrets: [inventory](secrets.md).

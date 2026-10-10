@@ -1,0 +1,68 @@
+name: Shared native action acceptance
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  actions:
+    runs-on: ubuntu-24.04
+    environment: package-signing
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          version: '0.11.6'
+      - run: sudo apt-get update && sudo apt-get install -y rpm gnupg zstd
+      - uses: gelstable/gel-registry/.github/actions/setup-nfpm@6e4c873bbb4c56e8805cd41387871af64558e31d
+      - uses: gelstable/gel-registry/.github/actions/native-plan@6e4c873bbb4c56e8805cd41387871af64558e31d
+        id: server
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          product: server
+          source_tag: v7.1
+      - name: Verify live server source plan
+        env:
+          PLAN: ${{ steps.server.outputs.plan }}
+        run: python3 -c 'import json,os; p=json.loads(os.environ["PLAN"]); assert len(p)==1 and p[0]["slot"]=="7" and set(p[0]["sources"])=={"x86_64","aarch64"}'
+      - name: Create fixture portable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p fixture/gel-server-7.1
+          printf 'fixture source\n' > fixture/gel-server-7.1/content
+          tar --zstd -cf /tmp/gel-server-x86_64-unknown-linux-gnu.tar.zst -C fixture gel-server-7.1
+          cp /tmp/gel-server-x86_64-unknown-linux-gnu.tar.zst /tmp/gel-server-aarch64-unknown-linux-gnu.tar.zst
+          gh release create v7.1 /tmp/gel-server-*-unknown-linux-gnu.tar.zst --title 'Disposable portable fixture' --target "$GITHUB_SHA"
+      - name: Plan and build fixture revision one
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_TAG: v7.1
+          REPACK: 'false'
+        run: python3 .github/scripts/fixture-package.py
+      - uses: gelstable/gel-registry/.github/actions/sign-rpms@6e4c873bbb4c56e8805cd41387871af64558e31d
+        env:
+          PACKAGE_SIGNING_KEY: ${{ secrets.PACKAGE_SIGNING_KEY }}
+          PACKAGE_SIGNING_FPR: ${{ secrets.PACKAGE_SIGNING_FPR }}
+        with:
+          directory: packages
+      - uses: gelstable/gel-registry/.github/actions/native-manifest@6e4c873bbb4c56e8805cd41387871af64558e31d
+        id: manifest
+        with:
+          directory: packages
+          repository: ${{ github.repository }}
+          tag: pkg-gel-7-7.1-1
+      - name: Write and inspect final manifest
+        env:
+          NATIVE: ${{ steps.manifest.outputs.native }}
+        run: |
+          python3 -c 'import json,os,pathlib; n=json.loads(os.environ["NATIVE"]); assert len(n["packages"])==4; pathlib.Path("/tmp/gel-registry.json").write_text(json.dumps({"schema_version":2,"native":n}))'
+      - uses: gelstable/gel-registry/.github/actions/check-manifest@6e4c873bbb4c56e8805cd41387871af64558e31d
+        with:
+          file: /tmp/gel-registry.json
+      - uses: gelstable/gel-registry/.github/actions/publish-native-release@6e4c873bbb4c56e8805cd41387871af64558e31d
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          directory: packages
+          tag: pkg-gel-7-7.1-1
