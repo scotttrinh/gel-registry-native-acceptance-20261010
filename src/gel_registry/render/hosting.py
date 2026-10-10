@@ -126,7 +126,7 @@ def hosting_config(manifest: RootManifest, repositories: tuple[str, ...] = ()) -
         try:
             validate_repository_name(repository)
             owner, name = repository.split("/")
-            if owner != "gelstable":
+            if owner != "scotttrinh":
                 raise ValueError("unsupported pool owner")
         except ValueError as exc:
             raise RenderError(f"unsupported pool repository: {repository}") from exc
@@ -138,7 +138,7 @@ def hosting_config(manifest: RootManifest, repositories: tuple[str, ...] = ()) -
                 "source": (
                     f"/:format(apt|rpm)/pool/:repo({'|'.join(names)})/:tag/:asset"
                 ),
-                "destination": "https://github.com/gelstable/:repo/releases/download/:tag/:asset",
+                "destination": "https://github.com/scotttrinh/:repo/releases/download/:tag/:asset",
                 "permanent": False,
             }
         ]
