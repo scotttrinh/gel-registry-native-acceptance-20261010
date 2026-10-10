@@ -1,0 +1,14 @@
+Package: gel-server-7
+Architecture: arm64
+Version: 1:7.1-2
+Priority: optional
+Maintainer: Disposable Fixture <fixture@example.invalid>
+Installed-Size: 0
+Filename: pool/gel-registry-native-acceptance-20261010/pkg-gel-7-7.1-2/gel-server-7-7.1-2-arm64.deb
+Size: 696
+MD5sum: 697d22ebd1b24e47d76146cb25c60fb7
+SHA1: e26bcd730cdd048bc5c419aefb9d177aa7c5efdf
+SHA256: 6369c50a6d6644b7aa0e8707427a18e34daa904e7da673931bb6eefb709f7ee2
+SHA512: 4518dd9632fe3b8818f06355b1b5f7a839ce9df4cc91fbef2a20c63b36bcb1d0fb053e39867dc3795abb55477595f2e11e74b61addd554edd29a7f387fc88288
+Description: Disposable acceptance fixture
+

@@ -1,0 +1,35 @@
+{
+  "indexes": [],
+  "native": {
+    "packages": [
+      {
+        "sha256": "a55372a19d238ffee7afa3d78de4b1fcbaea692fc847253ab9e360d718874746",
+        "size": 1892,
+        "url": "https://github.com/scotttrinh/gel-registry-native-acceptance-20261010/releases/download/pkg-gel-7-7.1-2/gel-server-7-7.1-2-aarch64.rpm"
+      },
+      {
+        "sha256": "03a1f691ebe1ba9b7bfffe641d47688e3a4ca4e69ee6f39f3ad5d17ab46908ea",
+        "size": 696,
+        "url": "https://github.com/scotttrinh/gel-registry-native-acceptance-20261010/releases/download/pkg-gel-7-7.1-2/gel-server-7-7.1-2-amd64.deb"
+      },
+      {
+        "sha256": "6369c50a6d6644b7aa0e8707427a18e34daa904e7da673931bb6eefb709f7ee2",
+        "size": 696,
+        "url": "https://github.com/scotttrinh/gel-registry-native-acceptance-20261010/releases/download/pkg-gel-7-7.1-2/gel-server-7-7.1-2-arm64.deb"
+      },
+      {
+        "sha256": "4d578c88399ed7f3388a362044ead59c2bf1b357b8230bfee1f5acb620ca74ab",
+        "size": 1892,
+        "url": "https://github.com/scotttrinh/gel-registry-native-acceptance-20261010/releases/download/pkg-gel-7-7.1-2/gel-server-7-7.1-2-x86_64.rpm"
+      }
+    ]
+  },
+  "replacements": [],
+  "schema_version": 2,
+  "source": {
+    "published_at": "2026-10-10T18:42:20Z",
+    "release_id": 409134879,
+    "repository": "scotttrinh/gel-registry-native-acceptance-20261010",
+    "tag": "pkg-gel-7-7.1-2"
+  }
+}
