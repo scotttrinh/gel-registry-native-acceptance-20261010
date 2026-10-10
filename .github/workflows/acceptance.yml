@@ -13,8 +13,8 @@ jobs:
         with:
           version: '0.11.6'
       - run: sudo apt-get update && sudo apt-get install -y rpm gnupg zstd
-      - uses: gelstable/gel-registry/.github/actions/setup-nfpm@6e4c873bbb4c56e8805cd41387871af64558e31d
-      - uses: gelstable/gel-registry/.github/actions/native-plan@6e4c873bbb4c56e8805cd41387871af64558e31d
+      - uses: gelstable/gel-registry/.github/actions/setup-nfpm@50ec2b2db4d583282a40a3baae70722c00a0a3f0
+      - uses: gelstable/gel-registry/.github/actions/native-plan@50ec2b2db4d583282a40a3baae70722c00a0a3f0
         id: server
         env:
           GH_TOKEN: ${{ github.token }}
@@ -25,6 +25,17 @@ jobs:
         env:
           PLAN: ${{ steps.server.outputs.plan }}
         run: python3 -c 'import json,os; p=json.loads(os.environ["PLAN"]); assert len(p)==1 and p[0]["slot"]=="7" and set(p[0]["sources"])=={"x86_64","aarch64"}'
+      - uses: gelstable/gel-registry/.github/actions/native-plan@50ec2b2db4d583282a40a3baae70722c00a0a3f0
+        id: postgis
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          product: postgis
+          source_tag: legacy-gel-server-6-ext-postgis
+      - name: Verify live legacy PostGIS source plan
+        env:
+          PLAN: ${{ steps.postgis.outputs.plan }}
+        run: python3 -c 'import json,os; p=json.loads(os.environ["PLAN"]); assert len(p)==1; assert "c6766e7" in p[0]["sources"]["x86_64"]["url"]; assert "edaa7ce" in p[0]["sources"]["aarch64"]["url"]'
       - name: Create fixture portable release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -42,13 +53,13 @@ jobs:
           SOURCE_TAG: v7.1
           REPACK: 'false'
         run: python3 .github/scripts/fixture-package.py
-      - uses: gelstable/gel-registry/.github/actions/sign-rpms@6e4c873bbb4c56e8805cd41387871af64558e31d
+      - uses: gelstable/gel-registry/.github/actions/sign-rpms@50ec2b2db4d583282a40a3baae70722c00a0a3f0
         env:
           PACKAGE_SIGNING_KEY: ${{ secrets.PACKAGE_SIGNING_KEY }}
           PACKAGE_SIGNING_FPR: ${{ secrets.PACKAGE_SIGNING_FPR }}
         with:
           directory: packages
-      - uses: gelstable/gel-registry/.github/actions/native-manifest@6e4c873bbb4c56e8805cd41387871af64558e31d
+      - uses: gelstable/gel-registry/.github/actions/native-manifest@50ec2b2db4d583282a40a3baae70722c00a0a3f0
         id: manifest
         with:
           directory: packages
@@ -59,10 +70,10 @@ jobs:
           NATIVE: ${{ steps.manifest.outputs.native }}
         run: |
           python3 -c 'import json,os,pathlib; n=json.loads(os.environ["NATIVE"]); assert len(n["packages"])==4; pathlib.Path("/tmp/gel-registry.json").write_text(json.dumps({"schema_version":2,"native":n}))'
-      - uses: gelstable/gel-registry/.github/actions/check-manifest@6e4c873bbb4c56e8805cd41387871af64558e31d
+      - uses: gelstable/gel-registry/.github/actions/check-manifest@50ec2b2db4d583282a40a3baae70722c00a0a3f0
         with:
           file: /tmp/gel-registry.json
-      - uses: gelstable/gel-registry/.github/actions/publish-native-release@6e4c873bbb4c56e8805cd41387871af64558e31d
+      - uses: gelstable/gel-registry/.github/actions/publish-native-release@50ec2b2db4d583282a40a3baae70722c00a0a3f0
         env:
           GH_TOKEN: ${{ github.token }}
         with:

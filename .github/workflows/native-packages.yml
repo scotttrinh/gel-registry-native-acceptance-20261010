@@ -20,7 +20,7 @@ jobs:
         with:
           version: '0.11.6'
       - run: sudo apt-get update && sudo apt-get install -y rpm gnupg zstd
-      - uses: gelstable/gel-registry/.github/actions/setup-nfpm@6e4c873bbb4c56e8805cd41387871af64558e31d
+      - uses: gelstable/gel-registry/.github/actions/setup-nfpm@50ec2b2db4d583282a40a3baae70722c00a0a3f0
       - id: plan
         env:
           GH_TOKEN: ${{ github.token }}
@@ -30,14 +30,14 @@ jobs:
           python3 .github/scripts/fixture-package.py
           if test -f /tmp/fixture-tag; then echo "tag=$(cat /tmp/fixture-tag)" >> "$GITHUB_OUTPUT"; fi
       - if: steps.plan.outputs.tag != ''
-        uses: gelstable/gel-registry/.github/actions/sign-rpms@6e4c873bbb4c56e8805cd41387871af64558e31d
+        uses: gelstable/gel-registry/.github/actions/sign-rpms@50ec2b2db4d583282a40a3baae70722c00a0a3f0
         env:
           PACKAGE_SIGNING_KEY: ${{ secrets.PACKAGE_SIGNING_KEY }}
           PACKAGE_SIGNING_FPR: ${{ secrets.PACKAGE_SIGNING_FPR }}
         with:
           directory: packages
       - if: steps.plan.outputs.tag != ''
-        uses: gelstable/gel-registry/.github/actions/publish-native-release@6e4c873bbb4c56e8805cd41387871af64558e31d
+        uses: gelstable/gel-registry/.github/actions/publish-native-release@50ec2b2db4d583282a40a3baae70722c00a0a3f0
         env:
           GH_TOKEN: ${{ github.token }}
         with:
