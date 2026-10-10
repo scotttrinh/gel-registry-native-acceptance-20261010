@@ -65,35 +65,35 @@ headers = [
 
 [[rewrites]]
 source = "/archive/.jsonindexes/x86_64-unknown-linux-gnu.json"
-destination = "/i/8bd06c01c5e8c1315357ad8ff7197905.json"
+destination = "/i/fe1816b4c42ef81352eedd31df97c99d.json"
 
 [[rewrites]]
 source = "/archive/.jsonindexes/x86_64-unknown-linux-musl.json"
-destination = "/i/177326a16c6f5c98cd8c12d8029b1f3f.json"
+destination = "/i/0f0047aca09d3c32c4165fa2355f9f4e.json"
 
 [[rewrites]]
 source = "/archive/.jsonindexes/aarch64-unknown-linux-gnu.json"
-destination = "/i/4c495f627aeb34b6b6ac9ab155b0da68.json"
+destination = "/i/7c4201a101073a36aa18b4b7e1e59f27.json"
 
 [[rewrites]]
 source = "/archive/.jsonindexes/aarch64-unknown-linux-musl.json"
-destination = "/i/d5784a1da043dad0fbf8d7099832fa83.json"
+destination = "/i/efe593ed85fe0c5a9d651c5eae6fb4f3.json"
 
 [[rewrites]]
 source = "/archive/.jsonindexes/x86_64-apple-darwin.json"
-destination = "/i/748a1740553fed0b844fd9092d8555bb.json"
+destination = "/i/d7e96837e96caba6adc7d04749109845.json"
 
 [[rewrites]]
 source = "/archive/.jsonindexes/aarch64-apple-darwin.json"
-destination = "/i/6bfb2b9b90e1b088cd793b714930810f.json"
+destination = "/i/f294f0ae6a325c1e70d58c2a6b3de1d7.json"
 
 [[rewrites]]
 source = "/archive/.jsonindexes/x86_64-pc-windows-msvc.json"
-destination = "/i/a68eab44e7725c47751ca1a351c62f4e.json"
+destination = "/i/039df4462e84848e7634b7f26bbcc99f.json"
 
 [[rewrites]]
 source = "/archive/.jsonindexes/aarch64-pc-windows-msvc.json"
-destination = "/i/0d0cd09a2b9685cc9152c0d693b321c9.json"
+destination = "/i/ef7b13e0d244f07b28e60d784cb38933.json"
 
 [[rewrites]]
 source = "/archive/.jsonindexes/x86_64-unknown-linux-gnu.testing.json"
@@ -133,7 +133,7 @@ destination = "/i/831b2e1f8a8a898286e3b4ca52457ee6.json"
 
 [[rewrites]]
 source = "/archive/.jsonindexes/aarch64-unknown-linux-gnu.nightly.json"
-destination = "/i/cc6c37fa72eb8a2bf8c6e0e638fc1c4b.json"
+destination = "/i/062275b073ccb9928b17b5e705eb1911.json"
 
 [[rewrites]]
 source = "/archive/.jsonindexes/aarch64-unknown-linux-musl.nightly.json"
@@ -156,6 +156,6 @@ source = "/archive/.jsonindexes/aarch64-pc-windows-msvc.nightly.json"
 destination = "/i/53669408a953d4843b5f409b90ceaaaa.json"
 
 [[redirects]]
-source = "/:format(apt|rpm)/pool/:repo(gel|gel-cli|gel-postgis)/:tag/:asset"
-destination = "https://github.com/gelstable/:repo/releases/download/:tag/:asset"
+source = "/:format(apt|rpm)/pool/:repo(gel-registry-native-acceptance-20261010)/:tag/:asset"
+destination = "https://github.com/scotttrinh/:repo/releases/download/:tag/:asset"
 permanent = false
