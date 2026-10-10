@@ -1,11 +1,11 @@
 {
-  "schema_version": 2,
-  "repositories": [
-    "scotttrinh/gel-registry-native-acceptance-20261010"
-  ],
   "native_package_names": {
     "scotttrinh/gel-registry-native-acceptance-20261010": [
       "^gel-(server-)?[0-9]+$"
     ]
-  }
+  },
+  "repositories": [
+    "scotttrinh/gel-registry-native-acceptance-20261010"
+  ],
+  "schema_version": 2
 }
